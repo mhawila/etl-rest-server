@@ -108,6 +108,78 @@ module.exports = (function(){
         return queryObj;   
     }
     
+    function getPregnantPatientsQuery(params) {
+        var params = params || {};
+    	// basic mult-select query conditions
+    	var conditions = [];
+    	if(!_.isEmpty(params)) {     
+            _handleAgeCondition(params, conditions);
+            _handleLocationCondition(params, conditions);
+            _handlePeriodCondition(params, conditions);
+            _handleGenderCondition(params, conditions);
+            
+         }
+         
+    	var _body = ejs.Request()
+    		.size(0)
+    		.query(
+    			ejs.BoolQuery()
+    			.must(conditions)
+    			.must(
+    				ejs.BoolQuery()
+    				.should(
+    					ejs.BoolQuery()
+    					.must(ejs.TermQuery('concept_id', 1856))
+    					.mustNot(ejs.TermQuery('value_coded', 1175))	
+    				)
+    				.should(ejs.TermsQuery('concept_id', [1279,5992,1855]))
+    				.should(
+    					ejs.BoolQuery()
+    					.must(ejs.TermsQuery('concept_id', [45, 5272]))
+    					.must(ejs.TermsQuery('value_coded', [703, 1065]))
+    				)
+    				.should(
+    					ejs.BoolQuery()
+    					.must(ejs.TermsQuery('concept_id', [1790, 6042]))
+    					.must(ejs.TermsQuery('value_coded', [44, 47, 46]))
+    				)
+    				.should(
+    					ejs.BoolQuery()
+    					.must(ejs.TermsQuery('concept_id', [1834, 1835]))
+    					.must(ejs.TermsQuery('value_coded', [1831]))
+    				)
+    				.should(ejs.TermQuery('concept_id', 1854))
+    				.should(
+    					ejs.BoolQuery()
+    					.must(ejs.TermsQuery('concept_id', [1181, 1251]))
+    					.must(ejs.TermsQuery('value_coded', [1148, 1776]))
+    				)
+    				.should(
+    					ejs.BoolQuery()
+    					.must(ejs.TermsQuery('concept_id', [1992]))
+    					.must(ejs.TermsQuery('value_coded', [1066, 1067]))
+    				)
+    				.should(
+    					ejs.BoolQuery()
+    					.must(ejs.TermsQuery('concept_id', [2055]))
+    					.must(ejs.TermsQuery('value_coded', [1065]))
+    				)
+    			)
+    		)
+    		.agg(
+    			ejs.TermsAggregation(params.aggsName || 'patients')
+    			.field('person_id')
+    			.size(0)
+    		);
+
+    	var queryObj = {
+    		index: params.index || index,
+    		type: params.type || type,
+    		body:_body	
+    	}
+    	return queryObj;
+    }
+    
     // function transferOutQuery(params) {
     //     var params = params || {};
     //     
@@ -302,6 +374,7 @@ module.exports = (function(){
     return {
         enrolledInCareQuery: enrolledInCareQuery,
         activeInCareQuery: activeInCareQuery,
-        transferOutQuery: transferOutQuery
+        transferOutQuery: transferOutQuery,
+        getPregnantPatientsQuery: getPregnantPatientsQuery
     };
 })();

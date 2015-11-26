@@ -1,6 +1,7 @@
 module.exports = (function(){
     'use strict';
-    var careQueries = require('./queries/care.treatment.query.js');
+    var careQueries = require('./queries/care.treatment.query');
+    var pcpQueries = require('./queries/pcp.query');
     var _ = require('lodash');
     var elastic = require('elasticsearch');
     
@@ -8,6 +9,44 @@ module.exports = (function(){
         host: 'https://etl.ampath.or.ke/elastic',
         log: 'debug'
     });
+    
+    function getPregantPatients(params, callback, eCallback) {
+        var mode = params.mode || '_default';
+        var query = careQueries.getPregnantPatientsQuery(params);
+        console.log(JSON.stringify(query));
+        switch(mode) {
+            case '_query': callback(query); break;
+            case '_count':
+                // Return count
+                var agg = params.aggsName || 'patients';
+                eClient.search(query).then(function(data) {
+                    var count = data.aggregations[agg].buckets.length;
+                    var response = {
+                        indicator: 'Number of pregnant patients',
+                        total: count
+                    };
+                    callback(response);
+                }, function(err) {
+                    console.trace(err.message);
+                    if(typeof eCallback === 'function') {
+                        eCallback(err);
+                    }
+                });
+                break;
+            case '_raw':
+            case '_default':
+            default: 
+                //Return raw data.
+                eClient.search(query).then(function(data) {
+                    callback(data);
+                }, function(err) {
+                    console.trace(err.message);
+                    if(typeof eCallback === 'function') {
+                        eCallback(err);
+                    }
+                });
+        }
+    }
     
     function getEnrolledInCare(params, callback, eCallback) {
         var query = careQueries.enrolledInCareQuery(params);
@@ -229,6 +268,44 @@ module.exports = (function(){
         });
     }
     
+    // PCP prophylaxis
+    function getPcpProphylaxisPatients(params, callback, eCallback) {
+        var mode = params.mode || '_default';
+        var query = pcpQueries.getPcpStartedQuery();
+        switch(mode) {
+            case '_query': callback(query); break;
+            case '_count':
+                // Return count
+                var agg = params.aggsName || 'patients';
+                eClient.search(query).then(function(data) {
+                    var count = data.aggregations[agg].buckets.length;
+                    var response = {
+                        indicator: 'Number of pregnant patients',
+                        total: count
+                    };
+                    callback(response);
+                }, function(err) {
+                    console.trace(err.message);
+                    if(typeof eCallback === 'function') {
+                        eCallback(err);
+                    }
+                });
+                break;
+            case '_raw':
+            case '_default':
+            default: 
+                //Return raw data.
+                eClient.search(query).then(function(data) {
+                    callback(data);
+                }, function(err) {
+                    console.trace(err.message);
+                    if(typeof eCallback === 'function') {
+                        eCallback(err);
+                    }
+                });
+        }
+    }
+    
     function _getPatients(buckets) {
         var array = [];
         _.each(buckets, function(b) {
@@ -249,9 +326,12 @@ module.exports = (function(){
             callback(count);
         })
     }
+    
     return {
         getEnrolledInCare: getEnrolledInCare,
         getEnrolledInCareMOh: getEnrolledInCareMOh,
-        getActiveInCareMoh: getActiveInCareMoh
+        getActiveInCareMoh: getActiveInCareMoh,
+        getPregantPatients: getPregantPatients,
+        getPcpProphylaxisPatients: getPcpProphylaxisPatients
     }
 })();

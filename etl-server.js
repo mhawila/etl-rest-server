@@ -3,14 +3,15 @@ var mysql = require('mysql');
 var Good = require('good');
 var Basic = require('hapi-auth-basic');
 var https = require('https');
-var settings = require('./conf/settings.js');
+var settings = require('./conf/settings');
 var squel = require ('squel');
 var corsHeaders = require('hapi-cors-headers');
 var _ = require('underscore');
 var tls = require('tls');
 var fs = require('fs');
 var routes = require('./etl-routes');
-var elasticRoutes = require('./elastic/routes/care.treatment.routes');
+var careRoutes = require('./elastic/routes/care.treatment.routes');
+var pcpRoutes = require('./elastic/routes/pcp.routes');
 
 
 // var httpsServer = tls.createServer({
@@ -92,8 +93,12 @@ server.register([
         for (var route of routes) {
             server.route(route);
         }
-
-        for (var route of elasticRoutes) {
+        
+        for (var route of careRoutes) {
+            server.route(route);
+        }
+        
+        for (var route of pcpRoutes) {
             server.route(route);
         }
 
@@ -101,4 +106,5 @@ server.register([
         server.start(function () {
             server.log('info', 'Server running at: ' + server.info.uri);
         });
-});
+    }
+);

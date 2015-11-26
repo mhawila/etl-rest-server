@@ -3,7 +3,7 @@ module.exports = (function(){
     var elasticAccess = require('../elastic.access.js');
     
     function enrolledHandler(request, reply) {
-        elasticAccess.getEnrolledInCare({},function(data){
+        elasticAccess.getEnrolledInCare(request.query, function(data){
             //Create json
             var response = {
                 total: data
@@ -48,5 +48,15 @@ module.exports = (function(){
         method: 'GET',
         path: '/active-in-care/moh',
         handler: activeInCareMohHandler
+    }, {
+        method: 'GET',
+        path: '/pregnant/{mode}',
+        handler: function (request, reply) {
+            var params = request.query || {};
+            params.mode = request.params.mode || '_default';
+            elasticAccess.getPregantPatients(request.query, function(data) {
+                reply(data)
+            });
+        }
     }];
 })();
