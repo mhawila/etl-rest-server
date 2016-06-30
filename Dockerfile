@@ -14,7 +14,7 @@ RUN apt-get update && \
   cd /opt/etl && \
   npm install
 
-COPY settings.js /opt/etl/conf/settings.js
+COPY docker-settings.js /opt/etl/conf/config.js
 
 EXPOSE 8002
 
