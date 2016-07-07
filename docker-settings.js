@@ -1,4 +1,4 @@
-{
+module.exports = {
   openmrs: {
     host: process.env.OPENMRS_HOST_ADDR || 'localhost',
     applicationName: process.env.OPENMRS_NAME || 'openmrs',
@@ -7,9 +7,9 @@
   etl: {
     host: 'localhost',
     port: 8002,
-    tls: true,
+    tls: false,
     key: '/keys/server.key',  // Server Key
-    crt: '/keys/server.crt'    // Certificate to allow TLS access to the server
+    cert: '/keys/server.crt'    // Certificate to allow TLS access to the server
   },
   mysql: {
     connectionLimit: 10,
@@ -19,4 +19,4 @@
     password: process.env.DB_ENV_MYSQL_PASSWORD || 'etl_password',
     multipleStatements: true
   }
-}
+};

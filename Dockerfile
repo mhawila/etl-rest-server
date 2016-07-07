@@ -3,8 +3,9 @@ FROM ubuntu:14.04
 COPY . /opt/etl
 
 RUN apt-get update && \
-  apt-get install -y git openssl nodejs npm && \
-  ln -s /usr/bin/nodejs /usr/bin/node && \
+  apt-get install -y git openssl wget rlwrap && \
+  wget https://deb.nodesource.com/node_5.x/pool/main/n/nodejs/nodejs_5.9.1-1nodesource1~trusty1_amd64.deb && \
+  dpkg -i nodejs_5.9.1-1nodesource1~trusty1_amd64.deb && \
   sed -i -- 's/localhost/0.0.0.0/g' /opt/etl/etl-server.js && \
   if [ ! -f /keys/server.crt ]; then \
     mkdir /keys; \
@@ -14,6 +15,10 @@ RUN apt-get update && \
   cd /opt/etl && \
   npm install
 
+# Delete the conf file if it already exists
+RUN echo 'Attempting to delete conf directory contents ha!' && \
+  rm -rf /opt/etl/conf/config.*
+  
 COPY docker-settings.js /opt/etl/conf/config.js
 
 EXPOSE 8002
