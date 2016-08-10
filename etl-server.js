@@ -1,3 +1,4 @@
+'use strict';
 var Hapi = require('hapi');
 var mysql = require('mysql');
 var Good = require('good');
@@ -23,6 +24,7 @@ var user = '';
 var cluster = require('cluster');
 var os = require('os');
 
+const SESSION_TTL = 30 * 60 * 1000; // 30 minutes
 
 var numCPUs = os.cpus().length;
 var server = new Hapi.Server({
@@ -36,6 +38,11 @@ var server = new Hapi.Server({
   }
 });
 
+const cache = server.cache({
+  segment: 'userSessions',
+  expiresIn: SESSION_TTL
+})
+
 var tls_config = false;
 if (config.etl.tls) {
   tls_config = tls.createServer({
@@ -48,49 +55,68 @@ server.connection({
   port: config.etl.port,
   host: config.etl.host,
   tls: tls_config
+}).state('sessionId', {
+  ttl: SESSION_TTL,
+  isSecure: false,
+  isHttpOnly: true,
+  path: '/etl/'
 });
+
 var pool = mysql.createPool(config.mysql);
 
-var validate = function (username, password, callback) {
-
-  //Openmrs context
-  var openmrsAppName = config.openmrs.applicationName || 'amrs';
-  var options = {
-    hostname: config.openmrs.host,
-    port: config.openmrs.port,
-    path: '/' + openmrsAppName + '/ws/rest/v1/session',
-    headers: {
-      'Authorization': "Basic " + new Buffer(username + ":" + password).toString("base64")
+var validate = function (request, username, password, callback) {
+  console.log('Date ' + (new Date()).toString() + ', Request state object:', request.state);
+  let sessionId = request.state.sessionId;
+  let openmrsAuthenticate = function() {
+    let openmrsAppName = config.openmrs.applicationName || 'amrs';
+    let options = {
+      hostname: config.openmrs.host,
+      port: config.openmrs.port,
+      path: '/' + openmrsAppName + '/ws/rest/v1/session',
+      headers: {
+        'Authorization': "Basic " + new Buffer(username + ":" + password).toString("base64")
+      }
+    };
+    if (config.openmrs.https) {
+      https = require('https');
     }
+    https.get(options, function (res) {
+      var body = '';
+      res.on('data', function (chunk) {
+        body += chunk;
+      });
+      res.on('end', function () {
+        var result = JSON.parse(body);
+        user = result.user.username;
+        authorizer.setUser(result.user);
+        var currentUser = {
+          username: username,
+          role: authorizer.isSuperUser() ?
+            authorizer.getAllPrivilegesArray() :
+            authorizer.getCurrentUserPreviliges()
+        };
+        currentUser.authenticated = result.authenticated;
+        //console.log('Logged in user:', currentUser);
+        cache.set('username', currentUser);
+        callback(null, result.authenticated, currentUser);
+
+      });
+    }).on('error', function (error) {
+      //console.log(error);
+      callback(null, false);
+    });
   };
-  if (config.openmrs.https) {
-    https = require('https');
+  
+  if(sessionId) {
+    cache.get(username, (err, value, cached, log) => {
+      if(!value) {
+        // authenticate with openmrs
+        openmrsAuthenticate();
+      } else {
+        callback(null, value.authenticated, value);
+      }
+    });
   }
-  https.get(options, function (res) {
-    var body = '';
-    res.on('data', function (chunk) {
-      body += chunk;
-    });
-    res.on('end', function () {
-      var result = JSON.parse(body);
-      user = result.user.username;
-      authorizer.setUser(result.user);
-      var currentUser = {
-        username: username,
-        role: authorizer.isSuperUser() ?
-          authorizer.getAllPrivilegesArray() :
-          authorizer.getCurrentUserPreviliges()
-      };
-
-      //console.log('Logged in user:', currentUser);
-
-      callback(null, result.authenticated, currentUser);
-
-    });
-  }).on('error', function (error) {
-    //console.log(error);
-    callback(null, false);
-  });
 };
 
 var HapiSwaggerOptions = {
@@ -111,6 +137,15 @@ server.ext('onRequest', function (request, reply) {
   return reply.continue();
 
 });
+
+server.ext('onPostHandler', function(request, reply) {
+  let credos = request.auth.credentials || {};
+  if(credos.sessionId) {
+    request.response.state('sessionId', credos.sessionId);
+  }
+  reply.continue();
+});
+
 server.register([
   Inert,
   Vision, {
@@ -192,7 +227,6 @@ server.register([
 
     }
 
-
-
   });
+  
 module.exports = server;
